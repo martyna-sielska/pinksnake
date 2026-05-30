@@ -648,6 +648,32 @@ class _GamePainter extends CustomPainter {
       final rrect = RRect.fromRectAndRadius(rect, Radius.circular(cellSize * 0.22));
       final paint = Paint()..color = i == 0 ? colors.head : colors.snake;
       canvas.drawRRect(rrect, paint);
+
+      if (i == 0) {
+        final eyeOffset = cellSize * 0.16;
+        final eyeRadius = cellSize * 0.06;
+        final pupilRadius = cellSize * 0.03;
+        final eyePaint = Paint()..color = colors.text;
+        final pupilPaint = Paint()..color = Colors.black;
+        final eyeY = rect.top + rect.height * 0.35;
+
+        if (_direction.x != 0) {
+          final eyeX = rect.left + rect.width * 0.65;
+          final topEye = Offset(eyeX, rect.top + eyeOffset);
+          final bottomEye = Offset(eyeX, rect.bottom - eyeOffset);
+          canvas.drawCircle(topEye, eyeRadius, eyePaint);
+          canvas.drawCircle(bottomEye, eyeRadius, eyePaint);
+          canvas.drawCircle(topEye, pupilRadius, pupilPaint);
+          canvas.drawCircle(bottomEye, pupilRadius, pupilPaint);
+        } else {
+          final leftEye = Offset(rect.left + eyeOffset, eyeY);
+          final rightEye = Offset(rect.right - eyeOffset, eyeY);
+          canvas.drawCircle(leftEye, eyeRadius, eyePaint);
+          canvas.drawCircle(rightEye, eyeRadius, eyePaint);
+          canvas.drawCircle(leftEye, pupilRadius, pupilPaint);
+          canvas.drawCircle(rightEye, pupilRadius, pupilPaint);
+        }
+      }
     }
   }
 
