@@ -1,7 +1,7 @@
 name: Build iOS IPA Without Apple Account
 on:
   push:
-    branches: [ main, master ] # Uruchomi się, gdy wypchniesz kod do GitHuba
+    branches: [ main, master ]
 
 jobs:
   build:
@@ -29,7 +29,7 @@ jobs:
           zip -r app-release.ipa Payload
 
       - name: Upload IPA Artifact
-        uses: actions/actions-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ios-app
           path: app-release.ipa
