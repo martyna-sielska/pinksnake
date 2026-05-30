@@ -37,8 +37,15 @@ class SnakeHome extends StatefulWidget {
 }
 
 class _SnakeHomeState extends State<SnakeHome> {
-  static const int gridSize = 20;
-  static const Duration stepDuration = Duration(milliseconds: 240);
+  static const int defaultGridSize = 20;
+  static const int minGridSize = 12;
+  static const int maxGridSize = 40;
+  static const int gridStep = 2;
+
+  static const int defaultStepMs = 240;
+  static const int minStepMs = 80;
+  static const int maxStepMs = 400;
+  static const int stepMsStep = 20;
   static const int scoreStep = 10;
 
   final Random _rng = Random();
@@ -46,6 +53,8 @@ class _SnakeHomeState extends State<SnakeHome> {
   Point<int> _direction = const Point(1, 0);
   Point<int> _nextDirection = const Point(1, 0);
   Point<int> _food = const Point(5, 5);
+  int _gridSize = defaultGridSize;
+  Duration _stepDuration = const Duration(milliseconds: defaultStepMs);
   int _score = 0;
   int _best = 0;
 
@@ -73,8 +82,8 @@ class _SnakeHomeState extends State<SnakeHome> {
     _snake
       ..clear()
       ..addAll([
-        Point(gridSize ~/ 2, gridSize ~/ 2),
-        Point(gridSize ~/ 2 - 1, gridSize ~/ 2),
+        Point(_gridSize ~/ 2, _gridSize ~/ 2),
+        Point(_gridSize ~/ 2 - 1, _gridSize ~/ 2),
       ]);
     _direction = const Point(1, 0);
     _nextDirection = const Point(1, 0);
@@ -86,7 +95,7 @@ class _SnakeHomeState extends State<SnakeHome> {
 
   void _spawnFood() {
     while (true) {
-      final candidate = Point(_rng.nextInt(gridSize), _rng.nextInt(gridSize));
+      final candidate = Point(_rng.nextInt(_gridSize), _rng.nextInt(_gridSize));
       final hit = _snake.any((segment) => segment == candidate);
       if (!hit) {
         _food = candidate;
@@ -103,7 +112,7 @@ class _SnakeHomeState extends State<SnakeHome> {
     _paused = false;
     _gameOver = false;
     _timer?.cancel();
-    _timer = Timer.periodic(stepDuration, (_) => _tick());
+    _timer = Timer.periodic(_stepDuration, (_) => _tick());
     setState(() {});
   }
 
@@ -116,7 +125,7 @@ class _SnakeHomeState extends State<SnakeHome> {
       _timer?.cancel();
     } else {
       _timer?.cancel();
-      _timer = Timer.periodic(stepDuration, (_) => _tick());
+      _timer = Timer.periodic(_stepDuration, (_) => _tick());
     }
     setState(() {});
   }
@@ -138,7 +147,7 @@ class _SnakeHomeState extends State<SnakeHome> {
     final head = _snake.first;
     final next = Point(head.x + _direction.x, head.y + _direction.y);
 
-    if (next.x < 0 || next.x >= gridSize || next.y < 0 || next.y >= gridSize) {
+    if (next.x < 0 || next.x >= _gridSize || next.y < 0 || next.y >= _gridSize) {
       _stopGame();
       return;
     }
@@ -223,6 +232,34 @@ class _SnakeHomeState extends State<SnakeHome> {
     _swipeConsumed = false;
   }
 
+  void _updateGridSize(double value) {
+    final newSize = value.round();
+    if (newSize == _gridSize) {
+      return;
+    }
+
+    _timer?.cancel();
+    _running = false;
+    _paused = false;
+    _gameOver = false;
+    _gridSize = newSize;
+    _resetGame();
+  }
+
+  void _updateSpeed(double value) {
+    final newMs = value.round();
+    if (_stepDuration.inMilliseconds == newMs) {
+      return;
+    }
+
+    _stepDuration = Duration(milliseconds: newMs);
+    if (_running && !_paused) {
+      _timer?.cancel();
+      _timer = Timer.periodic(_stepDuration, (_) => _tick());
+    }
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = _PinkThemeColors();
@@ -277,7 +314,7 @@ class _SnakeHomeState extends State<SnakeHome> {
                                 child: SizedBox.expand(
                                   child: CustomPaint(
                                     painter: _GamePainter(
-                                      gridSize: gridSize,
+                                      gridSize: _gridSize,
                                       snake: List.unmodifiable(_snake),
                                       food: _food,
                                       colors: colors,
@@ -298,6 +335,26 @@ class _SnakeHomeState extends State<SnakeHome> {
                     );
                   },
                 ),
+              ),
+              const SizedBox(height: 16),
+              _SliderCard(
+                label: 'GRID',
+                value: _gridSize.toDouble(),
+                min: minGridSize.toDouble(),
+                max: maxGridSize.toDouble(),
+                divisions: ((maxGridSize - minGridSize) / gridStep).round(),
+                onChanged: _updateGridSize,
+                colors: colors,
+              ),
+              const SizedBox(height: 12),
+              _SliderCard(
+                label: 'SPEED',
+                value: _stepDuration.inMilliseconds.toDouble(),
+                min: minStepMs.toDouble(),
+                max: maxStepMs.toDouble(),
+                divisions: ((maxStepMs - minStepMs) / stepMsStep).round(),
+                onChanged: _updateSpeed,
+                colors: colors,
               ),
               const SizedBox(height: 16),
               Text(
@@ -467,6 +524,76 @@ class _Overlay extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _SliderCard extends StatelessWidget {
+  const _SliderCard({
+    required this.label,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.divisions,
+    required this.onChanged,
+    required this.colors,
+  });
+
+  final String label;
+  final double value;
+  final double min;
+  final double max;
+  final int divisions;
+  final ValueChanged<double> onChanged;
+  final _PinkThemeColors colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: colors.card,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: colors.borderLight),
+        boxShadow: [
+          BoxShadow(
+            color: colors.shadow,
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              letterSpacing: 1.2,
+              color: colors.subtitle,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                activeTrackColor: colors.subtitle,
+                inactiveTrackColor: colors.borderLight,
+                thumbColor: Colors.white,
+                overlayColor: colors.subtitle.withOpacity(0.12),
+              ),
+              child: Slider(
+                value: value.clamp(min, max),
+                min: min,
+                max: max,
+                divisions: divisions,
+                onChanged: onChanged,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
