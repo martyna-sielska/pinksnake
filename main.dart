@@ -241,55 +241,62 @@ class _SnakeHomeState extends State<SnakeHome> {
               ),
               const SizedBox(height: 18),
               Expanded(
-                child: Center(
-                  child: AspectRatio(
-                    aspectRatio: 1,
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: _handleTap,
-                      onPanStart: _handlePanStart,
-                      onPanUpdate: _handlePanUpdate,
-                      onPanEnd: _handlePanEnd,
-                      child: Stack(
-                        children: [
-                          DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [colors.boardTop, colors.boardBottom],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(24),
-                              border: Border.all(color: colors.border, width: 2),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: colors.shadow,
-                                  blurRadius: 30,
-                                  offset: const Offset(0, 12),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final boardSize = min(constraints.maxWidth, constraints.maxHeight);
+
+                    return Center(
+                      child: SizedBox(
+                        width: boardSize,
+                        height: boardSize,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: _handleTap,
+                          onPanStart: _handlePanStart,
+                          onPanUpdate: _handlePanUpdate,
+                          onPanEnd: _handlePanEnd,
+                          child: Stack(
+                            children: [
+                              DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [colors.boardTop, colors.boardBottom],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  borderRadius: BorderRadius.circular(24),
+                                  border: Border.all(color: colors.border, width: 2),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: colors.shadow,
+                                      blurRadius: 30,
+                                      offset: const Offset(0, 12),
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
-                            child: SizedBox.expand(
-                              child: CustomPaint(
-                                painter: _GamePainter(
-                                  gridSize: gridSize,
-                                  snake: List.unmodifiable(_snake),
-                                  food: _food,
+                                child: SizedBox.expand(
+                                  child: CustomPaint(
+                                    painter: _GamePainter(
+                                      gridSize: gridSize,
+                                      snake: List.unmodifiable(_snake),
+                                      food: _food,
+                                      colors: colors,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              if (!_running || _paused || _gameOver)
+                                _Overlay(
+                                  paused: _paused,
+                                  gameOver: _gameOver,
                                   colors: colors,
                                 ),
-                              ),
-                            ),
+                            ],
                           ),
-                          if (!_running || _paused || _gameOver)
-                            _Overlay(
-                              paused: _paused,
-                              gameOver: _gameOver,
-                              colors: colors,
-                            ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
               ),
               const SizedBox(height: 16),
