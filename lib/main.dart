@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,7 +20,11 @@ class SnakeApp extends StatelessWidget {
       title: 'Pink Snake',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFFF45A2)),
+        brightness: Brightness.dark,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFFFF4FA3),
+          brightness: Brightness.dark,
+        ),
         textTheme: const TextTheme(
           titleLarge: TextStyle(fontWeight: FontWeight.w700),
         ),
@@ -47,8 +52,10 @@ class _SnakeHomeState extends State<SnakeHome> {
   static const int maxStepMs = 400;
   static const int stepMsStep = 20;
   static const int scoreStep = 10;
+  static const String _bestScoreKey = 'best_score';
 
   final Random _rng = Random();
+  SharedPreferences? _prefs;
   final List<Point<int>> _snake = [];
   Point<int> _direction = const Point(1, 0);
   Point<int> _nextDirection = const Point(1, 0);
@@ -69,6 +76,7 @@ class _SnakeHomeState extends State<SnakeHome> {
   @override
   void initState() {
     super.initState();
+    _loadBestScore();
     _resetGame();
   }
 
@@ -91,6 +99,30 @@ class _SnakeHomeState extends State<SnakeHome> {
     _gameOver = false;
     _spawnFood();
     setState(() {});
+  }
+
+  Future<void> _loadBestScore() async {
+    final prefs = await SharedPreferences.getInstance();
+    final storedBest = prefs.getInt(_bestScoreKey) ?? 0;
+    if (!mounted) {
+      return;
+    }
+    final nextBest = max(_best, storedBest);
+    setState(() {
+      _prefs = prefs;
+      _best = nextBest;
+    });
+    if (nextBest != storedBest) {
+      unawaited(prefs.setInt(_bestScoreKey, nextBest));
+    }
+  }
+
+  void _persistBestScore() {
+    final prefs = _prefs;
+    if (prefs == null) {
+      return;
+    }
+    unawaited(prefs.setInt(_bestScoreKey, _best));
   }
 
   void _spawnFood() {
@@ -163,6 +195,7 @@ class _SnakeHomeState extends State<SnakeHome> {
       _score += scoreStep;
       if (_score > _best) {
         _best = _score;
+        _persistBestScore();
       }
       _spawnFood();
     } else {
@@ -267,100 +300,115 @@ class _SnakeHomeState extends State<SnakeHome> {
     return Scaffold(
       backgroundColor: colors.background,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
+        child: DefaultTextStyle(
+          style: const TextStyle(
+            fontFamily: 'Courier New',
+            fontFamilyFallback: ['Courier', 'monospace'],
+            letterSpacing: 1.4,
+            height: 1.1,
+          ),
+          child: Stack(
             children: [
-              _Header(
-                score: _score,
-                best: _best,
-                colors: colors,
-              ),
-              const SizedBox(height: 18),
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final boardSize = min(constraints.maxWidth, constraints.maxHeight);
-
-                    return Center(
-                      child: SizedBox(
-                        width: boardSize,
-                        height: boardSize,
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: _handleTap,
-                          onPanStart: _handlePanStart,
-                          onPanUpdate: _handlePanUpdate,
-                          onPanEnd: _handlePanEnd,
-                          child: Stack(
-                            children: [
-                              DecoratedBox(
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [colors.boardTop, colors.boardBottom],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
-                                  borderRadius: BorderRadius.circular(24),
-                                  border: Border.all(color: colors.border, width: 2),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: colors.shadow,
-                                      blurRadius: 30,
-                                      offset: const Offset(0, 12),
-                                    ),
-                                  ],
-                                ),
-                                child: SizedBox.expand(
-                                  child: CustomPaint(
-                                    painter: _GamePainter(
-                                      gridSize: _gridSize,
-                                      snake: List.unmodifiable(_snake),
-                                      food: _food,
-                                      colors: colors,
-                                      direction: _direction,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              if (!_running || _paused || _gameOver)
-                                _Overlay(
-                                  paused: _paused,
-                                  gameOver: _gameOver,
-                                  colors: colors,
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomPaint(
+                    painter: _ScanlinePainter(color: colors.scanline),
+                  ),
                 ),
               ),
-              const SizedBox(height: 16),
-              _SliderCard(
-                label: 'GRID',
-                value: _gridSize.toDouble(),
-                min: minGridSize.toDouble(),
-                max: maxGridSize.toDouble(),
-                divisions: ((maxGridSize - minGridSize) / gridStep).round(),
-                onChanged: _updateGridSize,
-                colors: colors,
-              ),
-              const SizedBox(height: 12),
-              _SliderCard(
-                label: 'SPEED',
-                value: _stepDuration.inMilliseconds.toDouble(),
-                min: minStepMs.toDouble(),
-                max: maxStepMs.toDouble(),
-                divisions: ((maxStepMs - minStepMs) / stepMsStep).round(),
-                onChanged: _updateSpeed,
-                colors: colors,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Swipe to steer. Tap to start or pause.',
-                style: TextStyle(color: colors.hint),
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    _Header(
+                      score: _score,
+                      best: _best,
+                      colors: colors,
+                    ),
+                    const SizedBox(height: 18),
+                    Expanded(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final boardSize = min(constraints.maxWidth, constraints.maxHeight);
+
+                          return Center(
+                            child: SizedBox(
+                              width: boardSize,
+                              height: boardSize,
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: _handleTap,
+                                onPanStart: _handlePanStart,
+                                onPanUpdate: _handlePanUpdate,
+                                onPanEnd: _handlePanEnd,
+                                child: Stack(
+                                  children: [
+                                    DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        color: colors.boardTop,
+                                        borderRadius: BorderRadius.zero,
+                                        border: Border.all(color: colors.border, width: 3),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: colors.shadow,
+                                            blurRadius: 0,
+                                            offset: const Offset(6, 6),
+                                          ),
+                                        ],
+                                      ),
+                                      child: SizedBox.expand(
+                                        child: CustomPaint(
+                                          painter: _GamePainter(
+                                            gridSize: _gridSize,
+                                            snake: List.unmodifiable(_snake),
+                                            food: _food,
+                                            colors: colors,
+                                            direction: _direction,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    if (!_running || _paused || _gameOver)
+                                      _Overlay(
+                                        paused: _paused,
+                                        gameOver: _gameOver,
+                                        colors: colors,
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _SliderCard(
+                      label: 'GRID',
+                      value: _gridSize.toDouble(),
+                      min: minGridSize.toDouble(),
+                      max: maxGridSize.toDouble(),
+                      divisions: ((maxGridSize - minGridSize) / gridStep).round(),
+                      onChanged: _updateGridSize,
+                      colors: colors,
+                    ),
+                    const SizedBox(height: 12),
+                    _SliderCard(
+                      label: 'SPEED',
+                      value: _stepDuration.inMilliseconds.toDouble(),
+                      min: minStepMs.toDouble(),
+                      max: maxStepMs.toDouble(),
+                      divisions: ((maxStepMs - minStepMs) / stepMsStep).round(),
+                      onChanged: _updateSpeed,
+                      colors: colors,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Swipe to steer. Tap to start or pause.',
+                      style: TextStyle(color: colors.hint),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -389,9 +437,16 @@ class _Header extends StatelessWidget {
         Text(
           'Snake',
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontSize: 32,
+                fontSize: 28,
                 color: colors.title,
-                letterSpacing: 1.2,
+                letterSpacing: 2,
+                shadows: [
+                  Shadow(
+                    color: colors.shadow,
+                    offset: const Offset(3, 3),
+                    blurRadius: 0,
+                  ),
+                ],
               ),
         ),
         Row(
@@ -423,13 +478,13 @@ class _StatCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: colors.card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: colors.borderLight),
+        borderRadius: BorderRadius.zero,
+        border: Border.all(color: colors.borderLight, width: 2),
         boxShadow: [
           BoxShadow(
             color: colors.shadow,
-            blurRadius: 16,
-            offset: const Offset(0, 8),
+            blurRadius: 0,
+            offset: const Offset(4, 4),
           ),
         ],
       ),
@@ -440,8 +495,15 @@ class _StatCard extends StatelessWidget {
             label.toUpperCase(),
             style: TextStyle(
               fontSize: 11,
-              letterSpacing: 1.1,
+              letterSpacing: 2,
               color: colors.subtitle,
+              shadows: [
+                Shadow(
+                  color: colors.shadow,
+                  offset: const Offset(2, 2),
+                  blurRadius: 0,
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 4),
@@ -451,6 +513,13 @@ class _StatCard extends StatelessWidget {
               fontSize: 20,
               fontWeight: FontWeight.w700,
               color: colors.text,
+              shadows: [
+                Shadow(
+                  color: colors.shadow,
+                  offset: const Offset(2, 2),
+                  blurRadius: 0,
+                ),
+              ],
             ),
           ),
         ],
@@ -486,20 +555,21 @@ class _Overlay extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: colors.overlay,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.zero,
+        border: Border.all(color: colors.border, width: 3),
       ),
       child: Center(
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           decoration: BoxDecoration(
             color: colors.card,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: colors.borderLight),
+            borderRadius: BorderRadius.zero,
+            border: Border.all(color: colors.borderLight, width: 2),
             boxShadow: [
               BoxShadow(
                 color: colors.shadow,
-                blurRadius: 20,
-                offset: const Offset(0, 10),
+                blurRadius: 0,
+                offset: const Offset(4, 4),
               ),
             ],
           ),
@@ -512,6 +582,14 @@ class _Overlay extends StatelessWidget {
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
                   color: colors.title,
+                  letterSpacing: 1.6,
+                  shadows: [
+                    Shadow(
+                      color: colors.shadow,
+                      offset: const Offset(2, 2),
+                      blurRadius: 0,
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 6),
@@ -520,6 +598,14 @@ class _Overlay extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 14,
                   color: colors.text,
+                  letterSpacing: 1.4,
+                  shadows: [
+                    Shadow(
+                      color: colors.shadow,
+                      offset: const Offset(2, 2),
+                      blurRadius: 0,
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -555,13 +641,13 @@ class _SliderCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: colors.card,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: colors.borderLight),
+        borderRadius: BorderRadius.zero,
+        border: Border.all(color: colors.borderLight, width: 2),
         boxShadow: [
           BoxShadow(
             color: colors.shadow,
-            blurRadius: 14,
-            offset: const Offset(0, 6),
+            blurRadius: 0,
+            offset: const Offset(4, 4),
           ),
         ],
       ),
@@ -571,9 +657,16 @@ class _SliderCard extends StatelessWidget {
             label,
             style: TextStyle(
               fontSize: 12,
-              letterSpacing: 1.2,
+              letterSpacing: 2,
               color: colors.subtitle,
               fontWeight: FontWeight.w700,
+              shadows: [
+                Shadow(
+                  color: colors.shadow,
+                  offset: const Offset(2, 2),
+                  blurRadius: 0,
+                ),
+              ],
             ),
           ),
           const SizedBox(width: 12),
@@ -582,8 +675,14 @@ class _SliderCard extends StatelessWidget {
               data: SliderTheme.of(context).copyWith(
                 activeTrackColor: colors.subtitle,
                 inactiveTrackColor: colors.borderLight,
-                thumbColor: Colors.white,
-                overlayColor: colors.subtitle.withOpacity(0.12),
+                trackHeight: 6,
+                thumbColor: colors.title,
+                activeTickMarkColor: colors.border,
+                inactiveTickMarkColor: colors.borderLight,
+                tickMarkShape: const RoundSliderTickMarkShape(tickMarkRadius: 2),
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                overlayShape: SliderComponentShape.noOverlay,
+                overlayColor: Colors.transparent,
               ),
               child: Slider(
                 value: value.clamp(min, max),
@@ -620,7 +719,8 @@ class _GamePainter extends CustomPainter {
     final cellSize = size.width / gridSize;
     final gridPaint = Paint()
       ..color = colors.grid
-      ..strokeWidth = 1;
+      ..strokeWidth = 1
+      ..isAntiAlias = false;
 
     for (var i = 1; i < gridSize; i += 1) {
       final pos = i * cellSize;
@@ -628,53 +728,136 @@ class _GamePainter extends CustomPainter {
       canvas.drawLine(Offset(0, pos), Offset(size.width, pos), gridPaint);
     }
 
-    final foodPaint = Paint()..color = colors.food;
-    final foodGlow = Paint()
-      ..color = colors.foodGlow
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
+    final segmentInset = max(1.0, cellSize * 0.12);
+    final foodInset = max(1.0, cellSize * 0.22);
+    final snakePaint = Paint()
+      ..color = colors.snake
+      ..isAntiAlias = false;
+    final headPaint = Paint()
+      ..color = colors.head
+      ..isAntiAlias = false;
+    final headHighlightPaint = Paint()
+      ..color = colors.borderLight
+      ..isAntiAlias = false;
+    final headOutlinePaint = Paint()
+      ..color = colors.border
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..isAntiAlias = false;
+    final foodPaint = Paint()
+      ..color = colors.food
+      ..isAntiAlias = false;
+    final foodOutline = Paint()
+      ..color = colors.border
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..isAntiAlias = false;
 
-    final foodCenter = Offset(
-      food.x * cellSize + cellSize / 2,
-      food.y * cellSize + cellSize / 2,
+    final foodRect = Rect.fromLTWH(
+      food.x * cellSize + foodInset,
+      food.y * cellSize + foodInset,
+      cellSize - foodInset * 2,
+      cellSize - foodInset * 2,
     );
-    canvas.drawCircle(foodCenter, cellSize * 0.28, foodGlow);
-    canvas.drawCircle(foodCenter, cellSize * 0.24, foodPaint);
+    canvas.drawRect(foodRect, foodPaint);
+    canvas.drawRect(foodRect, foodOutline);
 
     for (var i = 0; i < snake.length; i += 1) {
       final segment = snake[i];
       final rect = Rect.fromLTWH(
-        segment.x * cellSize + 2,
-        segment.y * cellSize + 2,
-        cellSize - 4,
-        cellSize - 4,
+        segment.x * cellSize + segmentInset,
+        segment.y * cellSize + segmentInset,
+        cellSize - segmentInset * 2,
+        cellSize - segmentInset * 2,
       );
-      final rrect = RRect.fromRectAndRadius(rect, Radius.circular(cellSize * 0.22));
-      final paint = Paint()..color = i == 0 ? colors.head : colors.snake;
-      canvas.drawRRect(rrect, paint);
+      final paint = i == 0 ? headPaint : snakePaint;
+      canvas.drawRect(rect, paint);
 
       if (i == 0) {
-        final eyeOffset = cellSize * 0.16;
-        final eyeRadius = cellSize * 0.06;
-        final pupilRadius = cellSize * 0.03;
-        final eyePaint = Paint()..color = colors.text;
-        final pupilPaint = Paint()..color = Colors.black;
-        final eyeY = rect.top + rect.height * 0.35;
+        canvas.drawRect(rect, headOutlinePaint);
+        final highlightInset = max(1.0, cellSize * 0.28);
+        final highlightRect = rect.deflate(highlightInset);
+        if (highlightRect.width > 0 && highlightRect.height > 0) {
+          canvas.drawRect(highlightRect, headHighlightPaint);
+        }
+
+        final eyeSize = max(1.0, cellSize * 0.18);
+        final pupilSize = max(1.0, cellSize * 0.08);
+        final eyePaint = Paint()
+          ..color = colors.text
+          ..isAntiAlias = false;
+        final pupilPaint = Paint()
+          ..color = Colors.black
+          ..isAntiAlias = false;
 
         if (direction.x != 0) {
-          final eyeX = rect.left + rect.width * 0.65;
-          final topEye = Offset(eyeX, rect.top + eyeOffset);
-          final bottomEye = Offset(eyeX, rect.bottom - eyeOffset);
-          canvas.drawCircle(topEye, eyeRadius, eyePaint);
-          canvas.drawCircle(bottomEye, eyeRadius, eyePaint);
-          canvas.drawCircle(topEye, pupilRadius, pupilPaint);
-          canvas.drawCircle(bottomEye, pupilRadius, pupilPaint);
+          final eyeX = rect.left + rect.width * 0.62;
+          final topEye = Rect.fromLTWH(
+            eyeX,
+            rect.top + rect.height * 0.18,
+            eyeSize,
+            eyeSize,
+          );
+          final bottomEye = Rect.fromLTWH(
+            eyeX,
+            rect.bottom - rect.height * 0.18 - eyeSize,
+            eyeSize,
+            eyeSize,
+          );
+          canvas.drawRect(topEye, eyePaint);
+          canvas.drawRect(bottomEye, eyePaint);
+          canvas.drawRect(
+            Rect.fromLTWH(
+              topEye.left + (eyeSize - pupilSize) / 2,
+              topEye.top + (eyeSize - pupilSize) / 2,
+              pupilSize,
+              pupilSize,
+            ),
+            pupilPaint,
+          );
+          canvas.drawRect(
+            Rect.fromLTWH(
+              bottomEye.left + (eyeSize - pupilSize) / 2,
+              bottomEye.top + (eyeSize - pupilSize) / 2,
+              pupilSize,
+              pupilSize,
+            ),
+            pupilPaint,
+          );
         } else {
-          final leftEye = Offset(rect.left + eyeOffset, eyeY);
-          final rightEye = Offset(rect.right - eyeOffset, eyeY);
-          canvas.drawCircle(leftEye, eyeRadius, eyePaint);
-          canvas.drawCircle(rightEye, eyeRadius, eyePaint);
-          canvas.drawCircle(leftEye, pupilRadius, pupilPaint);
-          canvas.drawCircle(rightEye, pupilRadius, pupilPaint);
+          final eyeY = rect.top + rect.height * 0.38;
+          final leftEye = Rect.fromLTWH(
+            rect.left + rect.width * 0.18,
+            eyeY,
+            eyeSize,
+            eyeSize,
+          );
+          final rightEye = Rect.fromLTWH(
+            rect.right - rect.width * 0.18 - eyeSize,
+            eyeY,
+            eyeSize,
+            eyeSize,
+          );
+          canvas.drawRect(leftEye, eyePaint);
+          canvas.drawRect(rightEye, eyePaint);
+          canvas.drawRect(
+            Rect.fromLTWH(
+              leftEye.left + (eyeSize - pupilSize) / 2,
+              leftEye.top + (eyeSize - pupilSize) / 2,
+              pupilSize,
+              pupilSize,
+            ),
+            pupilPaint,
+          );
+          canvas.drawRect(
+            Rect.fromLTWH(
+              rightEye.left + (eyeSize - pupilSize) / 2,
+              rightEye.top + (eyeSize - pupilSize) / 2,
+              pupilSize,
+              pupilSize,
+            ),
+            pupilPaint,
+          );
         }
       }
     }
@@ -688,22 +871,46 @@ class _GamePainter extends CustomPainter {
   }
 }
 
+class _ScanlinePainter extends CustomPainter {
+  _ScanlinePainter({required this.color, this.spacing = 6});
+
+  final Color color;
+  final double spacing;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1
+      ..isAntiAlias = false;
+    for (var y = 0.0; y <= size.height; y += spacing) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ScanlinePainter oldDelegate) {
+    return oldDelegate.color != color || oldDelegate.spacing != spacing;
+  }
+}
+
 class _PinkThemeColors {
-  final Color background = const Color(0xFFFFE3F2);
-  final Color boardTop = const Color(0xFFFFB6D8);
-  final Color boardBottom = const Color(0xFFFF7DBB);
-  final Color border = const Color(0xFFFF9CCC);
-  final Color borderLight = const Color(0xFFFFC7E2);
-  final Color shadow = const Color(0x332B0518);
-  final Color card = const Color(0xFFFFF6FB);
-  final Color title = const Color(0xFFC90F70);
-  final Color subtitle = const Color(0xFFF3178A);
-  final Color text = const Color(0xFF2B0518);
-  final Color grid = const Color(0x33FFFFFF);
-  final Color snake = const Color(0xFFFFF1F8);
-  final Color head = Colors.white;
-  final Color food = const Color(0xFFF3178A);
-  final Color foodGlow = const Color(0xFFFF9CCC);
-  final Color hint = const Color(0xFF8F0A50);
-  final Color overlay = const Color(0xD9FFE6F4);
+  final Color background = const Color(0xFF1A0A12);
+  final Color boardTop = const Color(0xFF2A0F1E);
+  final Color boardBottom = const Color(0xFF2A0F1E);
+  final Color border = const Color(0xFFFF4FA3);
+  final Color borderLight = const Color(0xFFFF9FCD);
+  final Color shadow = const Color(0x99000000);
+  final Color card = const Color(0xFF2A0F1E);
+  final Color title = const Color(0xFFFFB3DD);
+  final Color subtitle = const Color(0xFFFF6BB6);
+  final Color text = const Color(0xFFFFE6F3);
+  final Color grid = const Color(0x33FF6BB6);
+  final Color snake = const Color(0xFFFFC7E6);
+  final Color head = const Color(0xFFFFF2FA);
+  final Color food = const Color(0xFFFF4FA3);
+  final Color foodGlow = const Color(0x66FF4FA3);
+  final Color hint = const Color(0xFFFF8FCB);
+  final Color overlay = const Color(0xCC1A0A12);
+  final Color scanline = const Color(0x1AFFFFFF);
 }
