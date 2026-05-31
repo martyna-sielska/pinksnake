@@ -318,6 +318,7 @@ class _SnakeHomeState extends State<SnakeHome> {
                                       snake: List.unmodifiable(_snake),
                                       food: _food,
                                       colors: colors,
+                                      direction: _direction,
                                     ),
                                   ),
                                 ),
@@ -605,12 +606,14 @@ class _GamePainter extends CustomPainter {
     required this.snake,
     required this.food,
     required this.colors,
+    required this.direction,
   });
 
   final int gridSize;
   final List<Point<int>> snake;
   final Point<int> food;
   final _PinkThemeColors colors;
+  final Point<int> direction;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -657,7 +660,7 @@ class _GamePainter extends CustomPainter {
         final pupilPaint = Paint()..color = Colors.black;
         final eyeY = rect.top + rect.height * 0.35;
 
-        if (_direction.x != 0) {
+        if (direction.x != 0) {
           final eyeX = rect.left + rect.width * 0.65;
           final topEye = Offset(eyeX, rect.top + eyeOffset);
           final bottomEye = Offset(eyeX, rect.bottom - eyeOffset);
@@ -679,7 +682,9 @@ class _GamePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _GamePainter oldDelegate) {
-    return oldDelegate.snake != snake || oldDelegate.food != food;
+    return oldDelegate.snake != snake ||
+        oldDelegate.food != food ||
+        oldDelegate.direction != direction;
   }
 }
 
