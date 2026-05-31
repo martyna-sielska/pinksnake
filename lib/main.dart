@@ -34,6 +34,80 @@ class SnakeApp extends StatelessWidget {
   }
 }
 
+TextStyle _pixelTextStyle({
+  required Color color,
+  double size = 14,
+  FontWeight weight = FontWeight.w700,
+  double letterSpacing = 1.4,
+}) {
+  return TextStyle(
+    fontFamily: 'Courier New',
+    fontFamilyFallback: const ['Courier', 'monospace'],
+    fontSize: size,
+    fontWeight: weight,
+    letterSpacing: letterSpacing,
+    height: 1.0,
+    foreground: Paint()
+      ..color = color
+      ..isAntiAlias = false,
+  );
+}
+
+class _PixelText extends StatelessWidget {
+  const _PixelText(
+    this.text, {
+    required this.color,
+    this.size = 14,
+    this.weight = FontWeight.w700,
+    this.letterSpacing = 1.4,
+    this.shadowColor,
+    this.shadowOffset = const Offset(2, 2),
+    this.textAlign,
+  });
+
+  final String text;
+  final Color color;
+  final double size;
+  final FontWeight weight;
+  final double letterSpacing;
+  final Color? shadowColor;
+  final Offset shadowOffset;
+  final TextAlign? textAlign;
+
+  @override
+  Widget build(BuildContext context) {
+    final baseStyle = _pixelTextStyle(
+      color: color,
+      size: size,
+      weight: weight,
+      letterSpacing: letterSpacing,
+    );
+
+    if (shadowColor == null) {
+      return Text(text, style: baseStyle, textAlign: textAlign);
+    }
+
+    final shadowStyle = _pixelTextStyle(
+      color: shadowColor!,
+      size: size,
+      weight: weight,
+      letterSpacing: letterSpacing,
+    );
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Positioned(
+          left: shadowOffset.dx,
+          top: shadowOffset.dy,
+          child: Text(text, style: shadowStyle),
+        ),
+        Text(text, style: baseStyle, textAlign: textAlign),
+      ],
+    );
+  }
+}
+
 class SnakeHome extends StatefulWidget {
   const SnakeHome({super.key});
 
@@ -305,7 +379,7 @@ class _SnakeHomeState extends State<SnakeHome> {
             fontFamily: 'Courier New',
             fontFamilyFallback: ['Courier', 'monospace'],
             letterSpacing: 1.4,
-            height: 1.1,
+            height: 1.0,
           ),
           child: Stack(
             children: [
@@ -403,9 +477,11 @@ class _SnakeHomeState extends State<SnakeHome> {
                       colors: colors,
                     ),
                     const SizedBox(height: 16),
-                    Text(
+                    _PixelText(
                       'Swipe to steer. Tap to start or pause.',
-                      style: TextStyle(color: colors.hint),
+                      color: colors.hint,
+                      size: 12,
+                      letterSpacing: 1.2,
                     ),
                   ],
                 ),
@@ -434,20 +510,20 @@ class _Header extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          'Snake',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontSize: 28,
-                color: colors.title,
-                letterSpacing: 2,
-                shadows: [
-                  Shadow(
-                    color: colors.shadow,
-                    offset: const Offset(3, 3),
-                    blurRadius: 0,
-                  ),
-                ],
-              ),
+        Row(
+          children: [
+            _SnakeSprite(colors: colors, size: 40),
+            const SizedBox(width: 10),
+            _PixelText(
+              'SNAKE',
+              color: colors.title,
+              size: 26,
+              weight: FontWeight.w900,
+              letterSpacing: 3,
+              shadowColor: colors.shadow,
+              shadowOffset: const Offset(3, 3),
+            ),
+          ],
         ),
         Row(
           children: [
@@ -491,36 +567,21 @@ class _StatCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          _PixelText(
             label.toUpperCase(),
-            style: TextStyle(
-              fontSize: 11,
-              letterSpacing: 2,
-              color: colors.subtitle,
-              shadows: [
-                Shadow(
-                  color: colors.shadow,
-                  offset: const Offset(2, 2),
-                  blurRadius: 0,
-                ),
-              ],
-            ),
+            color: colors.subtitle,
+            size: 11,
+            letterSpacing: 2,
+            shadowColor: colors.shadow,
           ),
           const SizedBox(height: 4),
-          Text(
+          _PixelText(
             '$value',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: colors.text,
-              shadows: [
-                Shadow(
-                  color: colors.shadow,
-                  offset: const Offset(2, 2),
-                  blurRadius: 0,
-                ),
-              ],
-            ),
+            color: colors.text,
+            size: 20,
+            weight: FontWeight.w800,
+            letterSpacing: 1.6,
+            shadowColor: colors.shadow,
           ),
         ],
       ),
@@ -576,37 +637,21 @@ class _Overlay extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
+              _PixelText(
                 title,
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: colors.title,
-                  letterSpacing: 1.6,
-                  shadows: [
-                    Shadow(
-                      color: colors.shadow,
-                      offset: const Offset(2, 2),
-                      blurRadius: 0,
-                    ),
-                  ],
-                ),
+                color: colors.title,
+                size: 22,
+                weight: FontWeight.w800,
+                letterSpacing: 1.6,
+                shadowColor: colors.shadow,
               ),
               const SizedBox(height: 6),
-              Text(
+              _PixelText(
                 subtitle,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: colors.text,
-                  letterSpacing: 1.4,
-                  shadows: [
-                    Shadow(
-                      color: colors.shadow,
-                      offset: const Offset(2, 2),
-                      blurRadius: 0,
-                    ),
-                  ],
-                ),
+                color: colors.text,
+                size: 14,
+                letterSpacing: 1.4,
+                shadowColor: colors.shadow,
               ),
             ],
           ),
@@ -653,21 +698,12 @@ class _SliderCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Text(
+          _PixelText(
             label,
-            style: TextStyle(
-              fontSize: 12,
-              letterSpacing: 2,
-              color: colors.subtitle,
-              fontWeight: FontWeight.w700,
-              shadows: [
-                Shadow(
-                  color: colors.shadow,
-                  offset: const Offset(2, 2),
-                  blurRadius: 0,
-                ),
-              ],
-            ),
+            color: colors.subtitle,
+            size: 12,
+            letterSpacing: 2,
+            shadowColor: colors.shadow,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -743,6 +779,9 @@ class _GamePainter extends CustomPainter {
       ..color = colors.border
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1
+      ..isAntiAlias = false;
+    final bellyPaint = Paint()
+      ..color = colors.snakeBelly
       ..isAntiAlias = false;
     final foodPaint = Paint()
       ..color = colors.food
@@ -859,6 +898,16 @@ class _GamePainter extends CustomPainter {
             pupilPaint,
           );
         }
+      } else {
+        final bellyRect = Rect.fromLTWH(
+          rect.left + rect.width * 0.3,
+          rect.top + rect.height * 0.6,
+          rect.width * 0.4,
+          rect.height * 0.25,
+        );
+        if (bellyRect.width > 0 && bellyRect.height > 0) {
+          canvas.drawRect(bellyRect, bellyPaint);
+        }
       }
     }
   }
@@ -894,6 +943,101 @@ class _ScanlinePainter extends CustomPainter {
   }
 }
 
+class _SnakeSprite extends StatelessWidget {
+  const _SnakeSprite({required this.colors, this.size = 40});
+
+  final _PinkThemeColors colors;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: Size.square(size),
+      painter: _SnakeSpritePainter(colors: colors),
+    );
+  }
+}
+
+class _SnakeSpritePainter extends CustomPainter {
+  _SnakeSpritePainter({required this.colors});
+
+  final _PinkThemeColors colors;
+
+  static const List<String> _sprite = [
+    '......oooo......',
+    '.....oppppo.....',
+    '....oppppppo....',
+    '...opplpppppo...',
+    '..otpppppppppo..',
+    '..otpppwpppppo..',
+    '...opppkpppppo..',
+    '...oppppppppo...',
+    '..ooppppppppoo..',
+    '..ooppppppppoo..',
+    '..ooppppppppoo..',
+    '...ooppppppoo...',
+    '....ooopppoo....',
+    '.....ooooop.....',
+    '................',
+    '................',
+  ];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rows = _sprite.length;
+    final cols = _sprite.first.length;
+    final pixelSize = min(size.width, size.height) / cols;
+    final offsetX = (size.width - cols * pixelSize) / 2;
+    final offsetY = (size.height - rows * pixelSize) / 2;
+    final paint = Paint()..isAntiAlias = false;
+
+    for (var y = 0; y < rows; y += 1) {
+      final row = _sprite[y];
+      for (var x = 0; x < cols; x += 1) {
+        final code = row[x];
+        final color = _colorFor(code);
+        if (color == null) {
+          continue;
+        }
+        paint.color = color;
+        canvas.drawRect(
+          Rect.fromLTWH(
+            offsetX + x * pixelSize,
+            offsetY + y * pixelSize,
+            pixelSize,
+            pixelSize,
+          ),
+          paint,
+        );
+      }
+    }
+  }
+
+  Color? _colorFor(String code) {
+    switch (code) {
+      case 'o':
+        return colors.border;
+      case 'p':
+        return colors.spriteMain;
+      case 'l':
+        return colors.spriteLight;
+      case 't':
+        return colors.spriteTongue;
+      case 'w':
+        return colors.spriteEye;
+      case 'k':
+        return colors.spritePupil;
+      default:
+        return null;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _SnakeSpritePainter oldDelegate) {
+    return oldDelegate.colors != colors;
+  }
+}
+
 class _PinkThemeColors {
   final Color background = const Color(0xFF1A0A12);
   final Color boardTop = const Color(0xFF2A0F1E);
@@ -907,10 +1051,16 @@ class _PinkThemeColors {
   final Color text = const Color(0xFFFFE6F3);
   final Color grid = const Color(0x33FF6BB6);
   final Color snake = const Color(0xFFFFC7E6);
+  final Color snakeBelly = const Color(0xFFFFE2D0);
   final Color head = const Color(0xFFFFF2FA);
   final Color food = const Color(0xFFFF4FA3);
   final Color foodGlow = const Color(0x66FF4FA3);
   final Color hint = const Color(0xFFFF8FCB);
   final Color overlay = const Color(0xCC1A0A12);
   final Color scanline = const Color(0x1AFFFFFF);
+  final Color spriteMain = const Color(0xFFFF9FCD);
+  final Color spriteLight = const Color(0xFFFFD6EC);
+  final Color spriteTongue = const Color(0xFFB4134E);
+  final Color spriteEye = const Color(0xFFFFF6FB);
+  final Color spritePupil = const Color(0xFF1A0A12);
 }
